@@ -22,12 +22,21 @@
     display: none;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     width: 100%;
     min-height: 100vh;
-    padding: 20px;
+    padding: 16px 12px 32px;
     text-align: center;
     animation: fadeIn 0.5s ease;
+    overflow-y: auto;
+  }
+  /* Pantallas intro y final sí centradas verticalmente */
+  #screen1, #screen2, #screen4 {
+    justify-content: center;
+  }
+  /* Pantalla juego: empieza desde arriba con padding top */
+  #screen3 {
+    padding-top: 20px;
   }
   .screen.active { display: flex; }
 
@@ -192,11 +201,12 @@
     max-width: 600px;
     width: 100%;
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    gap: 10px;
     margin-bottom: 16px;
   }
   .respuesta-input {
-    flex: 1;
+    width: 100%;
     padding: 16px 20px;
     font-size: 1.1rem;
     border-radius: 50px;
@@ -328,7 +338,7 @@
       autocomplete="off"
       autocorrect="off"
     />
-    <button class="btn btn-gold" onclick="validar()">VALIDAR</button>
+    <button class="btn btn-gold btn-validar" onclick="validar()">VALIDAR</button>
   </div>
 
   <div class="feedback" id="feedback"></div>
@@ -554,23 +564,30 @@ function cargarRefran() {
   leerRefran();
 }
 
+function getVozEspanol() {
+  const voces = window.speechSynthesis.getVoices();
+  // Android Chrome tiene voces como "es-us-x-sfb-local" o "Spanish"
+  // Intentamos en orden de preferencia
+  return voces.find(v => v.lang === 'es-ES' && !v.localService === false)  // online es-ES
+      || voces.find(v => v.lang === 'es-ES')
+      || voces.find(v => v.lang === 'es-MX')
+      || voces.find(v => v.lang === 'es-US')
+      || voces.find(v => v.lang.startsWith('es'))
+      || null;
+}
+
 function leerRefran() {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const r = REFRANES[orden[indice]];
-  // Agregamos una coma para forzar pausa natural antes de los puntos
-  const texto = r[0] + ', ...';
+  const texto = r[0] + '...';
   const utter = new SpeechSynthesisUtterance(texto);
   utter.lang = 'es-ES';
-  utter.rate = 0.72;   // más lento para que se entienda bien
-  utter.pitch = 1.2;   // un poco más alto, más expresivo
+  utter.rate = 0.75;
+  utter.pitch = 1.1;
   utter.volume = 1;
-  const voces = window.speechSynthesis.getVoices();
-  // Preferir voz española femenina si hay, suena más clara
-  const esp = voces.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('female'))
-           || voces.find(v => v.lang === 'es-ES')
-           || voces.find(v => v.lang.startsWith('es'));
-  if (esp) utter.voice = esp;
+  const voz = getVozEspanol();
+  if (voz) utter.voice = voz;
   window.speechSynthesis.speak(utter);
 }
 
@@ -580,16 +597,17 @@ function hablar(texto, malo) {
   const utter = new SpeechSynthesisUtterance(texto);
   utter.lang = 'es-ES';
   utter.volume = 1;
+  // Android Chrome respeta rate pero no siempre pitch
+  // Usamos diferencias de rate más marcadas para que se note
   if (malo) {
-    utter.rate = 0.8;    // lento y dramático para el error
-    utter.pitch = 0.75;  // tono grave, decepcionado
+    utter.rate = 0.78;
+    utter.pitch = 0.7;
   } else {
-    utter.rate = 1.05;   // un poco animado para el acierto
-    utter.pitch = 1.4;   // tono agudo, sorprendido/alegre
+    utter.rate = 1.1;
+    utter.pitch = 1.5;
   }
-  const voces = window.speechSynthesis.getVoices();
-  const esp = voces.find(v => v.lang === 'es-ES') || voces.find(v => v.lang.startsWith('es'));
-  if (esp) utter.voice = esp;
+  const voz = getVozEspanol();
+  if (voz) utter.voice = voz;
   window.speechSynthesis.speak(utter);
 }
 
@@ -696,10 +714,12 @@ function reiniciar() {
   iniciarJuego();
 }
 
-// Cargar voces al iniciar
+// Android necesita tiempo para cargar voces
 if (window.speechSynthesis) {
   window.speechSynthesis.getVoices();
-  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices(); // forzar cache
+  };
 }
 </script>
 </body>
